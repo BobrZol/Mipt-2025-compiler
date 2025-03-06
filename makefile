@@ -15,6 +15,7 @@ $(NameCompiler): parser.tab.c lex.yy.c
 	$(CC) -o $(NameCompiler) parser.tab.c lex.yy.c -lfl
 
 test: $(NameCompiler) clean
+	# valgrind --leak-check=full --show-leak-kinds=all ./$(NameCompiler)
 	python3 test_compiler.py
 
 clean:
