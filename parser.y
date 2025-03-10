@@ -1,5 +1,5 @@
 %code requires {
-    #include "Ast.cpp"
+    #include "Ast.hpp"
 }
 
 %{

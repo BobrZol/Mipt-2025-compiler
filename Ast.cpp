@@ -1,163 +1,101 @@
-#include <iostream>
-#include <memory>
-#include <unordered_map>
+#include "Ast.hpp"
 
-inline std::shared_ptr<Scope> globalScope = std::make_shared<Scope>();
+Scope::Scope(std::shared_ptr<Scope> parent) : parent_(parent) {}
 
-class Scope {
-public:
-  Scope(std::shared_ptr<Scope> parent = nullptr) : parent_(parent) {}
-  void SetVar(const std::string& name, int value) { variables[name] = value; }
-  int GetVar(const std::string& name) {
-    auto it = variables.find(name);
-    if (it != variables.end())
-      return it->second;
-    if (parent_)
-      return parent_->GetVar(name);
-    std::cerr << "Error: Variable " << name << " not found" << std::endl;
-    exit(1);
+void Scope::SetVar(const std::string& name, int value) {
+  variables[name] = value;
+}
+
+int Scope::GetVar(const std::string& name) {
+  auto it = variables.find(name);
+  if (it != variables.end())
+    return it->second;
+  if (parent_)
+    return parent_->GetVar(name);
+
+  std::cerr << "Error: Variable " << name << " not found" << std::endl;
+  exit(1);
+}
+
+Root::Root(Stmt* head) : head(head), next(nullptr) {}
+
+Root::Root(Stmt* stmt, Root* next) : head(stmt), next(next) {}
+
+void Root::InterpretStmt(std::shared_ptr<Scope> scope) {
+  head->InterpretStmt(scope);
+  if (next != nullptr)
+    next->InterpretStmt(scope);
+
+  delete head;
+}
+
+Number::Number(int value) : value(value) {}
+
+int Number::InterpretExpr(std::shared_ptr<Scope> scope) { return value; }
+
+Print::Print(std::unique_ptr<Expr> expr) : expr_(std::move(expr)) {}
+
+void Print::InterpretStmt(std::shared_ptr<Scope> scope) {
+  std::cout << expr_->InterpretExpr(scope) << '\n';
+}
+
+Condition::Condition(std::unique_ptr<Expr> condition,
+                     std::unique_ptr<Stmt> then_stmt,
+                     std::unique_ptr<Stmt> else_stmt)
+    : condition_(std::move(condition)), then_stmt(std::move(then_stmt)),
+      else_stmt(std::move(else_stmt)) {}
+void Condition::InterpretStmt(std::shared_ptr<Scope> scope) {
+  if (condition_->InterpretExpr(scope)) {
+    then_stmt->InterpretStmt(std::make_shared<Scope>(scope));
+  } else {
+    else_stmt->InterpretStmt(std::make_shared<Scope>(scope));
   }
+}
 
-private:
-  std::unordered_map<std::string, int> variables;
-  std::shared_ptr<Scope> parent_;
-};
+Declare::Declare(const std::string& name) : name_(name), value_(0) {}
 
-class Expr {
-public:
-  virtual int InterpretExpr(std::shared_ptr<Scope> scope) = 0;
-  virtual ~Expr() = default;
-};
+void Declare::InterpretStmt(std::shared_ptr<Scope> scope) {
+  scope->SetVar(name_, value_);
+}
 
-class Stmt {
-public:
-  virtual void InterpretStmt(std::shared_ptr<Scope> scope) = 0;
-  virtual ~Stmt() = default;
-};
+Assignment::Assignment(const std::string& name, std::unique_ptr<Expr> expr)
+    : name_(name), expr_(std::move(expr)) {}
 
-class Root : public Stmt {
-public:
-  Root(Stmt* head) : head(head) {}
-  Root(Stmt* stmt, Root* next) : head(stmt), next(next) {}
-  void InterpretStmt(std::shared_ptr<Scope> scope) override {
-    // std::cout << "Root" << '\n';
-    head->InterpretStmt(scope);
-    if (next != nullptr)
-      next->InterpretStmt(scope);
-    delete head;
-  }
+void Assignment::InterpretStmt(std::shared_ptr<Scope> scope) {
+  scope->SetVar(name_, expr_->InterpretExpr(scope));
+}
 
-private:
-  Stmt* head;
-  Root* next;
-};
+Variable::Variable(const std::string& name) : name_(name) {}
 
-class Number : public Expr {
-public:
-  Number(int value) : value(value) {}
-  int InterpretExpr(std::shared_ptr<Scope> scope) override { return value; }
+int Variable::InterpretExpr(std::shared_ptr<Scope> scope) {
+  return scope->GetVar(name_);
+}
 
-private:
-  int value;
-};
+BinOp::BinOp(const std::string& op, std::unique_ptr<Expr> left,
+             std::unique_ptr<Expr> right)
+    : op_(op), left_(std::move(left)), right_(std::move(right)) {}
 
-class Print : public Stmt {
-public:
-  Print(std::unique_ptr<Expr> expr) : expr_(std::move(expr)) {}
-  void InterpretStmt(std::shared_ptr<Scope> scope) override {
-    // std::cout << "Print" << '\n';
-    std::cout << expr_->InterpretExpr(scope) << '\n';
-  }
+int BinOp::InterpretExpr(std::shared_ptr<Scope> scope) {
+  int l = left_->InterpretExpr(scope);
+  int r = right_->InterpretExpr(scope);
 
-private:
-  std::unique_ptr<Expr> expr_;
-};
+  if (op_ == "+")
+    return l + r;
+  if (op_ == "-")
+    return l - r;
+  if (op_ == "*")
+    return l * r;
 
-class Condition : public Stmt {
-public:
-  Condition(std::unique_ptr<Expr> condition, std::unique_ptr<Stmt> then_stmt,
-            std::unique_ptr<Stmt> else_stmt)
-      : condition_(std::move(condition)), then_stmt(std::move(then_stmt)),
-        else_stmt(std::move(else_stmt)) {}
-  void InterpretStmt(std::shared_ptr<Scope> scope) override {
-    if (condition_->InterpretExpr(scope)) {
-      then_stmt->InterpretStmt(std::make_shared<Scope>(scope));
-    } else {
-      else_stmt->InterpretStmt(std::make_shared<Scope>(scope));
+  if (op_ == "/") {
+    if (r == 0) {
+      std::cerr << "Division by zero";
+      return 0;
     }
+    return l / r;
   }
 
-private:
-  std::unique_ptr<Expr> condition_;
-  std::unique_ptr<Stmt> then_stmt;
-  std::unique_ptr<Stmt> else_stmt;
-};
+  if (op_ == "==")
+    return l == r;
 
-class Declare : public Stmt {
-public:
-  Declare(const std::string& name) : name_(name), value_(0) {}
-  void InterpretStmt(std::shared_ptr<Scope> scope) override {
-    // std::cout << "Declare" << '\n';
-    scope->SetVar(name_, value_);
-  }
-
-private:
-  std::string name_;
-  int value_;
-};
-
-class Assignment : public Stmt {
-public:
-  Assignment(const std::string& name, std::unique_ptr<Expr> expr)
-      : name_(name), expr_(std::move(expr)) {}
-  void InterpretStmt(std::shared_ptr<Scope> scope) override {
-    scope->SetVar(name_, expr_->InterpretExpr(scope));
-  }
-
-private:
-  std::string name_;
-  std::unique_ptr<Expr> expr_;
-};
-
-class Variable : public Expr {
-public:
-  Variable(const std::string& name) : name_(name) {}
-  int InterpretExpr(std::shared_ptr<Scope> scope) override {
-    return scope->GetVar(name_);
-  }
-
-private:
-  std::string name_;
-};
-
-class BinOp : public Expr {
-public:
-  BinOp(const std::string& op, std::unique_ptr<Expr> left,
-        std::unique_ptr<Expr> right)
-      : op_(op), left_(std::move(left)), right_(std::move(right)) {}
-  int InterpretExpr(std::shared_ptr<Scope> scope) override {
-    int l = left_->InterpretExpr(scope);
-    int r = right_->InterpretExpr(scope);
-    if (op_ == "+")
-      return l + r;
-    if (op_ == "-")
-      return l - r;
-    if (op_ == "*")
-      return l * r;
-    if (op_ == "/") {
-      if (r == 0) {
-        std::cerr << "Division by zero";
-        return 0;
-      }
-      return l / r;
-    }
-    if (op_ == "==")
-      return l == r;
-    return 0;
-  }
-
-private:
-  std::string op_;
-  std::unique_ptr<Expr> left_;
-  std::unique_ptr<Expr> right_;
-};
+  return 0;
+}
