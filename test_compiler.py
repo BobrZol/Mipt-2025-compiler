@@ -3,7 +3,7 @@ import subprocess
 
 def run_compiler(input_code):
     process = subprocess.run(
-        ["./compiler"],
+        ["./compiler", "--ast=true"],
         input=input_code,
         text=True,
         capture_output=True
@@ -47,6 +47,18 @@ def test_division():
     assert output == "5", f"Expected '5', got '{output}'"
 
 
+def test_print_ast():
+    code = "main() { declare x: int; x = 7; if (x == 8) { print(1); } else { print(0); } }"
+    process = subprocess.run(
+        ["./compiler", "print_ast=true", "ast_file=ast.txt"],
+        input=code,
+        text=True,
+        capture_output=True
+    )
+    assert process.stdout.strip(
+    ) == "0", f"Expected '0', got '{process.stdout.strip()}'"
+
+
 if __name__ == "__main__":
     tests = [
         test_print,
@@ -54,7 +66,8 @@ if __name__ == "__main__":
         test_arithmetic,
         test_if_true,
         test_if_false,
-        test_division
+        test_division,
+        test_print_ast
     ]
     for i, test in enumerate(tests, 1):
         try:

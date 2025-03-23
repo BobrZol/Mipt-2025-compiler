@@ -7,6 +7,9 @@
 #include <memory>
 #include <string>
 
+int print_ast = 0;
+char *ast_filename = NULL;
+
 extern int yylex();
 void yyerror(const char *s);
 %}
@@ -39,10 +42,12 @@ program:
         $$ = $5;
         $$->InterpretStmt(globalScope);
 
-        std::ofstream outFile("ast.txt");
-        if (outFile.is_open()) {
-            $$->PrintAst(outFile);
-            outFile.close();
+        if (print_ast) {
+          std::ofstream outFile(ast_filename);
+          if (outFile.is_open()) {
+              $$->PrintAst(outFile);
+              outFile.close();
+          }
         }
     }
     ;
@@ -97,7 +102,15 @@ expr:
 
 %%
 
-int main() {
+int main(int argc, char *argv[]) {
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "print_ast=true") == 0) {
+            print_ast = 1;
+        } else if (strncmp(argv[i], "ast_file=", 9) == 0) {
+            ast_filename = argv[i] + 9;
+        }
+    }
+
     yyparse();
     return 0;
 }
