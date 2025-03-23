@@ -38,6 +38,12 @@ program:
     MAIN LPAREN RPAREN LBRACE statements RBRACE {
         $$ = $5;
         $$->InterpretStmt(globalScope);
+
+        std::ofstream outFile("ast.txt");
+        if (outFile.is_open()) {
+            $$->PrintAst(outFile);
+            outFile.close();
+        }
     }
     ;
 
