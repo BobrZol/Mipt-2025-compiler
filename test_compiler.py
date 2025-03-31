@@ -50,7 +50,7 @@ def test_division():
 def test_print_ast():
     code = "main() { declare x: int; x = 7; if (x == 8) { print(1); } else { print(0); } }"
     process = subprocess.run(
-        ["./compiler", "print_ast=true", "ast_file=ast.txt"],
+        ["./compiler", "print_ast_to=ast.txt"],
         input=code,
         text=True,
         capture_output=True

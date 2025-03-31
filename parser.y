@@ -40,7 +40,8 @@ void yyerror(const char *s);
 program:
     MAIN LPAREN RPAREN LBRACE statements RBRACE {
         $$ = $5;
-        $$->InterpretStmt(globalScope);
+        InterpreterBase visitor;
+        $$->InterpretStmt(globalScope, visitor);
 
         if (print_ast) {
           std::ofstream outFile(ast_filename);
@@ -104,10 +105,8 @@ expr:
 
 int main(int argc, char *argv[]) {
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "print_ast=true") == 0) {
-            print_ast = 1;
-        } else if (strncmp(argv[i], "ast_file=", 9) == 0) {
-            ast_filename = argv[i] + 9;
+        if (strncmp(argv[i], "print_ast_to=", 12) == 0) {
+            ast_filename = argv[i] + 12;
         }
     }
 
