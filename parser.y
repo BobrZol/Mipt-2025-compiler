@@ -7,6 +7,9 @@
 #include <memory>
 #include <string>
 
+int print_ast = 0;
+char *ast_filename = NULL;
+
 extern int yylex();
 void yyerror(const char *s);
 %}
@@ -37,12 +40,15 @@ void yyerror(const char *s);
 program:
     MAIN LPAREN RPAREN LBRACE statements RBRACE {
         $$ = $5;
-        $$->InterpretStmt(globalScope);
+        InterpreterBase visitor;
+        $$->InterpretStmt(globalScope, visitor);
 
-        std::ofstream outFile("ast.txt");
-        if (outFile.is_open()) {
-            $$->PrintAst(outFile);
-            outFile.close();
+        if (print_ast) {
+          std::ofstream outFile(ast_filename);
+          if (outFile.is_open()) {
+              $$->PrintAst(outFile);
+              outFile.close();
+          }
         }
     }
     ;
@@ -97,7 +103,13 @@ expr:
 
 %%
 
-int main() {
+int main(int argc, char *argv[]) {
+    for (int i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "print_ast_to=", 12) == 0) {
+            ast_filename = argv[i] + 12;
+        }
+    }
+
     yyparse();
     return 0;
 }
