@@ -3,10 +3,18 @@ BISON = bison
 FLEX = flex
 NameCompiler = compiler
 
-# Объявляем объектные файлы
-OBJ = parser.tab.o lex.yy.o Ast.o
+LLVM_BUILD_DIR = ./llvm-project/build
+LLVM_CONFIG = $(LLVM_BUILD_DIR)/bin/llvm-config
 
-all: $(NameCompiler) clean test
+LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags)
+LLVM_LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags --system-libs --libs core support)
+
+CXXFLAGS = -std=c++17 -fno-rtti $(LLVM_CXXFLAGS)
+LDFLAGS = $(LLVM_LDFLAGS) -lfl
+
+OBJ = parser.tab.o lex.yy.o Ast.o IRGenerator.o
+
+all: $(NameCompiler)
 
 parser.tab.c: parser.y
 	$(BISON) -d parser.y
@@ -15,21 +23,22 @@ lex.yy.c: lexer.l
 	$(FLEX) lexer.l
 
 Ast.o: Ast.cpp Ast.hpp
-	$(CC) -c Ast.cpp
+	$(CC) $(CXXFLAGS) -c Ast.cpp
 
-parser.tab.o: parser.tab.c Ast.hpp
-	$(CC) -c parser.tab.c
+IRGenerator.o: IRGenerator.cpp IRGenerator.hpp
+	$(CC) $(CXXFLAGS) -c IRGenerator.cpp
 
-lex.yy.o: lex.yy.c Ast.hpp
-	$(CC) -c lex.yy.c
+parser.tab.o: parser.tab.c
+	$(CC) $(CXXFLAGS) -c parser.tab.c
 
-# Линковка всех объектных файлов в исполняемый файл
+lex.yy.o: lex.yy.c
+	$(CC) $(CXXFLAGS) -c lex.yy.c
+
 $(NameCompiler): $(OBJ)
-	$(CC) -o $(NameCompiler) $(OBJ) -lfl
+	$(CC) -o $@ $(OBJ) $(LDFLAGS)
 
 test: $(NameCompiler)
- # valgrind --leak-check=full --show-leak-kinds=all ./$(NameCompiler)
 	python3 test_compiler.py
 
 clean:
-	rm -f parser.tab.c parser.tab.h lex.yy.c $(OBJ)
+	rm -f parser.tab.* lex.yy.* $(OBJ) $(NameCompiler) *.ll

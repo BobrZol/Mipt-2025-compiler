@@ -1,4 +1,5 @@
 #include "Ast.hpp"
+#include "IRGenerator.hpp"
 
 BinOp::BinOp(const std::string& op, std::unique_ptr<Expr> left,
              std::unique_ptr<Expr> right)
@@ -6,6 +7,11 @@ BinOp::BinOp(const std::string& op, std::unique_ptr<Expr> left,
 
 int BinOp::InterpretExpr(std::shared_ptr<Scope> scope,
                          const VisitorInterpret& v) {
+  return v.Interpret(*this, scope);
+}
+
+llvm::Value* BinOp::InterpretExpr(std::shared_ptr<Scope> scope,
+                                  IRGenerator& v) {
   return v.Interpret(*this, scope);
 }
 
@@ -25,6 +31,9 @@ void Condition::InterpretStmt(std::shared_ptr<Scope> scope,
                               const VisitorInterpret& v) {
   v.Interpret(*this, scope);
 }
+void Condition::InterpretStmt(std::shared_ptr<Scope> scope, IRGenerator& v) {
+  v.Interpret(*this, scope);
+}
 
 void Condition::PrintAst(std::ofstream& out_file) {
   out_file << "if (\n";
@@ -42,6 +51,10 @@ void Declare::InterpretStmt(std::shared_ptr<Scope> scope,
   v.Interpret(*this, scope);
 }
 
+void Declare::InterpretStmt(std::shared_ptr<Scope> scope, IRGenerator& v) {
+  v.Interpret(*this, scope);
+}
+
 void Declare::PrintAst(std::ofstream& out_file) {
   out_file << "Declare: " << name_ << " = " << value_ << '\n';
 }
@@ -50,6 +63,11 @@ Number::Number(int value) : value(value) {}
 
 int Number::InterpretExpr(std::shared_ptr<Scope> scope,
                           const VisitorInterpret& v) {
+  return v.Interpret(*this, scope);
+}
+
+llvm::Value* Number::InterpretExpr(std::shared_ptr<Scope> scope,
+                                   IRGenerator& v) {
   return v.Interpret(*this, scope);
 }
 
@@ -69,6 +87,10 @@ void Print::InterpretStmt(std::shared_ptr<Scope> scope,
   v.Interpret(*this, scope);
 }
 
+void Print::InterpretStmt(std::shared_ptr<Scope> scope, IRGenerator& v) {
+  v.Interpret(*this, scope);
+}
+
 Root::Root(Stmt* head) : head(head), next(nullptr) {}
 
 Root::Root(Stmt* stmt, Root* next) : head(stmt), next(next) {}
@@ -77,6 +99,11 @@ void Root::InterpretStmt(std::shared_ptr<Scope> scope,
                          const VisitorInterpret& v) {
   v.Interpret(*this, scope);
 }
+
+void Root::InterpretStmt(std::shared_ptr<Scope> scope, IRGenerator& v) {
+  v.Interpret(*this, scope);
+}
+
 Root::~Root() {
   if (next != nullptr)
     next->~Root();
@@ -113,6 +140,11 @@ int Variable::InterpretExpr(std::shared_ptr<Scope> scope,
   return v.Interpret(*this, scope);
 }
 
+llvm::Value* Variable::InterpretExpr(std::shared_ptr<Scope> scope,
+                                     IRGenerator& v) {
+  return v.Interpret(*this, scope);
+}
+
 void Variable::PrintAst(std::ofstream& out_file) {
   out_file << "Variable: " << name_ << '\n';
 }
@@ -122,6 +154,10 @@ Assignment::Assignment(const std::string& name, std::unique_ptr<Expr> expr)
 
 void Assignment::InterpretStmt(std::shared_ptr<Scope> scope,
                                const VisitorInterpret& v) {
+  v.Interpret(*this, scope);
+}
+
+void Assignment::InterpretStmt(std::shared_ptr<Scope> scope, IRGenerator& v) {
   v.Interpret(*this, scope);
 }
 

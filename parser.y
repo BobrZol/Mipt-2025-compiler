@@ -1,11 +1,26 @@
 %code requires {
-    #include "Ast.hpp"
+  #include "Ast.hpp"
 }
 
 %{
 #include <iostream>
 #include <memory>
 #include <string>
+#include <llvm/Support/CommandLine.h>
+#include "IRGenerator.hpp"
+
+namespace cl = llvm::cl;
+
+cl::opt<bool> EmitIR(
+    "emit-ir",
+    cl::desc("Generate LLVM IR instead of executing")
+);
+
+cl::opt<std::string> ASTOutput(
+    "ast-output",
+    cl::desc("Output file for AST dump"),
+    cl::value_desc("filename")
+);
 
 int print_ast = 0;
 char *ast_filename = NULL;
@@ -39,16 +54,20 @@ void yyerror(const char *s);
 
 program:
     MAIN LPAREN RPAREN LBRACE statements RBRACE {
-        $$ = $5;
-        InterpreterBase visitor;
-        $$->InterpretStmt(globalScope, visitor);
+        if (EmitIR) {
+            llvm::LLVMContext context;
+            llvm::Module module("main", context);
+            IRGenerator generator(context, &module);
+            generator.Generate(*$5);
+            module.print(llvm::outs(), nullptr);
+        } else {
+            InterpreterBase visitor;
+            $5->InterpretStmt(globalScope, visitor);
+        }
 
-        if (print_ast) {
-          std::ofstream outFile(ast_filename);
-          if (outFile.is_open()) {
-              $$->PrintAst(outFile);
-              outFile.close();
-          }
+        if (!ASTOutput.empty()) {
+            std::ofstream out(ASTOutput.c_str());
+            $5->PrintAst(out);
         }
     }
     ;
@@ -104,11 +123,15 @@ expr:
 %%
 
 int main(int argc, char *argv[]) {
-    for (int i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "print_ast_to=", 12) == 0) {
-            ast_filename = argv[i] + 12;
-        }
+    cl::ParseCommandLineOptions(argc, argv, "My LLVM Tool\n");
+
+    /* if (EmitIR) {
+        std::cout << "Generating LLVM IR.\n";
     }
+
+    if (!ASTOutput.empty()) {
+        std::cout << "Outputting AST to file: " << ASTOutput << "\n";
+    } */
 
     yyparse();
     return 0;
