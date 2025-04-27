@@ -14,7 +14,7 @@ LDFLAGS = $(LLVM_LDFLAGS) -lfl
 
 OBJ = parser.tab.o lex.yy.o Ast.o IRGenerator.o
 
-all: $(NameCompiler)
+all: $(NameCompiler) test clean
 
 parser.tab.c: parser.y
 	$(BISON) -d parser.y

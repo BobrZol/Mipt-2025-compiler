@@ -9,23 +9,24 @@ class IRGenerator {
   llvm::LLVMContext& context;
   llvm::Module* module;
   llvm::IRBuilder<> builder;
-  std::unordered_map<std::string, llvm::Value*> symbol_table;
-  InterpreterBase base;
+  std::shared_ptr<TypeScope> current_scope;
 
 public:
   IRGenerator(llvm::LLVMContext& ctx, llvm::Module* mod)
-      : context(ctx), module(mod), builder(ctx), base(InterpreterBase()) {}
+      : context(ctx), module(mod), builder(ctx) {
+    current_scope = std::make_shared<TypeScope>();
+  }
 
   void Generate(Root& root);
 
-  void Interpret(Root& ref, std::shared_ptr<Scope> scope);
-  llvm::Value* Interpret(Number& ref, std::shared_ptr<Scope> scope);
-  void Interpret(Print& ref, std::shared_ptr<Scope> scope);
-  void Interpret(Condition& ref, std::shared_ptr<Scope> scope);
-  void Interpret(Declare& ref, std::shared_ptr<Scope> scope);
-  void Interpret(Assignment& ref, std::shared_ptr<Scope> scope);
-  llvm::Value* Interpret(Variable& ref, std::shared_ptr<Scope> scope);
-  llvm::Value* Interpret(BinOp& ref, std::shared_ptr<Scope> scope);
+  void Interpret(Root& ref, std::shared_ptr<TypeScope> scope);
+  llvm::Value* Interpret(Number& ref, std::shared_ptr<TypeScope> scope);
+  void Interpret(Print& ref, std::shared_ptr<TypeScope> scope);
+  void Interpret(Condition& ref, std::shared_ptr<TypeScope> scope);
+  void Interpret(Declare& ref, std::shared_ptr<TypeScope> scope);
+  void Interpret(Assignment& ref, std::shared_ptr<TypeScope> scope);
+  llvm::Value* Interpret(Variable& ref, std::shared_ptr<TypeScope> scope);
+  llvm::Value* Interpret(BinOp& ref, std::shared_ptr<TypeScope> scope);
 
   llvm::Type* getIntType() { return builder.getInt32Ty(); }
 };

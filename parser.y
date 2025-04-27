@@ -54,6 +54,8 @@ void yyerror(const char *s);
 
 program:
     MAIN LPAREN RPAREN LBRACE statements RBRACE {
+        TypeChecker checker;
+        checker.TypeCheck(*$5);
         if (EmitIR) {
             llvm::LLVMContext context;
             llvm::Module module("main", context);
@@ -61,10 +63,9 @@ program:
             generator.Generate(*$5);
             module.print(llvm::outs(), nullptr);
         } else {
-            InterpreterBase visitor;
-            $5->InterpretStmt(globalScope, visitor);
+            // InterpreterBase visitor;
+            // $5->InterpretStmt(globalScope, visitor);
         }
-
         if (!ASTOutput.empty()) {
             std::ofstream out(ASTOutput.c_str());
             $5->PrintAst(out);
@@ -98,11 +99,16 @@ assignment:
         free($1);
     }
     ;if_stmt:
-    IF LPAREN expr EQ expr RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE {
+    IF LPAREN expr EQ expr RPAREN LBRACE statements RBRACE {
+        Expr* cond = new BinOp("==", std::unique_ptr<Expr>($3), std::unique_ptr<Expr>($5));
+        $$ = new Condition(std::unique_ptr<Expr>(cond), std::unique_ptr<Stmt>($8), nullptr);
+    }
+    | IF LPAREN expr EQ expr RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE {
         Expr* cond = new BinOp("==", std::unique_ptr<Expr>($3), std::unique_ptr<Expr>($5));
         $$ = new Condition(std::unique_ptr<Expr>(cond), std::unique_ptr<Stmt>($8), std::unique_ptr<Stmt>($12));
     }
     ;
+
 
 print_stmt:
     PRINT LPAREN expr RPAREN {
