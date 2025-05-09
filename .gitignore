@@ -3,3 +3,5 @@ compiler
 HeaderFiles/
 SourceFiles/
 xlam
+llvmBUILDversion.zip
+llvm-project
