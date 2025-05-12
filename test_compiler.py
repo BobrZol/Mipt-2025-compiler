@@ -2,26 +2,16 @@ import subprocess
 import os
 
 def run_compiler(input_code):
-    ir_process = subprocess.run(
-        ["./compiler", "--emit-ir"],
+    exe_process = subprocess.run(
+        ["./compiler", "--emit-executable", "-o", "temp_program"],
         input=input_code,
         text=True,
         capture_output=True
     )
-    if ir_process.stderr:
-        raise RuntimeError(f"Compilation error: {ir_process.stderr}")
-    if ir_process.returncode != 0:
-        raise RuntimeError(f"IR generation failed: {ir_process.stderr}")
-
-    with open("temp.ll", "w") as f:
-        f.write(ir_process.stdout)
-
-    compile_process = subprocess.run(
-        ["clang", "-o", "temp_program", "temp.ll"],
-        capture_output=True
-    )
-    if compile_process.returncode != 0:
-        raise RuntimeError(f"Compilation failed: {compile_process.stderr}")
+    if exe_process.stderr:
+        raise RuntimeError(f"Compilation error: {exe_process.stderr}")
+    if exe_process.returncode != 0:
+        raise RuntimeError(f"Executable generation failed: {exe_process.stderr}")
 
     run_process = subprocess.run(
         ["./temp_program"],
@@ -29,7 +19,6 @@ def run_compiler(input_code):
         text=True
     )
 
-    os.remove("temp.ll")
     os.remove("temp_program")
 
     return run_process.stdout.strip()

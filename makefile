@@ -7,10 +7,10 @@ LLVM_BUILD_DIR = ./llvm-project/build
 LLVM_CONFIG = $(LLVM_BUILD_DIR)/bin/llvm-config
 
 LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags)
-LLVM_LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags --system-libs --libs core support)
+LLVM_LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags --system-libs --libs all)
 
-CXXFLAGS = -std=c++17 -fno-rtti $(LLVM_CXXFLAGS)
-LDFLAGS = $(LLVM_LDFLAGS) -lfl
+CXXFLAGS = -std=c++17 -fno-rtti -fno-pie $(LLVM_CXXFLAGS)
+LDFLAGS = $(LLVM_LDFLAGS) -lfl -no-pie -fPIE
 
 OBJ = parser.tab.o lex.yy.o Ast.o IRGenerator.o
 
@@ -41,4 +41,4 @@ test: $(NameCompiler)
 	python3 test_compiler.py
 
 clean:
-	rm -f parser.tab.* lex.yy.* $(OBJ) $(NameCompiler) *.ll
+	rm -f parser.tab.* lex.yy.* $(OBJ) $(NameCompiler) *.ll temp_program.o

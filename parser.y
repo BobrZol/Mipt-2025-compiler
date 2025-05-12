@@ -1,5 +1,12 @@
 %code requires {
   #include "Ast.hpp"
+  #include "llvm/MC/TargetRegistry.h"
+  #include "llvm/Support/FileSystem.h"
+  #include "llvm/TargetParser/Host.h"
+  #include "llvm/Support/TargetSelect.h"
+  #include "llvm/Target/TargetMachine.h"
+  #include "llvm/Target/TargetOptions.h"
+  #include "llvm/IR/LegacyPassManager.h"
 }
 
 %{
@@ -10,6 +17,17 @@
 #include "IRGenerator.hpp"
 
 namespace cl = llvm::cl;
+
+cl::opt<bool> EmitExecutable(
+    "emit-executable",
+    cl::desc("Generate executable file directly")
+);
+
+cl::opt<std::string> OutputFile(
+    "o",
+    cl::desc("Output executable file name"),
+    cl::value_desc("filename")
+);
 
 cl::opt<bool> EmitIR(
     "emit-ir",
@@ -56,16 +74,65 @@ program:
     MAIN LPAREN RPAREN LBRACE statements RBRACE {
         TypeChecker checker;
         checker.TypeCheck(*$5);
+        llvm::LLVMContext context;
+        llvm::Module module("main", context);
+        IRGenerator generator(context, &module);
+        generator.Generate(*$5);
+
         if (EmitIR) {
-            llvm::LLVMContext context;
-            llvm::Module module("main", context);
-            IRGenerator generator(context, &module);
-            generator.Generate(*$5);
             module.print(llvm::outs(), nullptr);
-        } else {
-            // InterpreterBase visitor;
-            // $5->InterpretStmt(globalScope, visitor);
+        } else if (EmitExecutable) {
+            std::string Error;
+            llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
+            module.setTargetTriple(triple);
+
+            const llvm::Target* TheTarget = llvm::TargetRegistry::lookupTarget(triple, Error);
+            if (!TheTarget) {
+                std::cerr << "Error initializing target: " << Error << std::endl;
+                exit(1);
+            }
+
+            llvm::TargetOptions opt;
+            std::optional<llvm::Reloc::Model> RM = llvm::Reloc::Static;
+
+            llvm::TargetMachine* TargetMachine = TheTarget->createTargetMachine(
+                triple, "generic", "", opt, RM
+            );
+            module.setDataLayout(TargetMachine->createDataLayout());
+
+            // Генерация объектного файла
+            std::string ObjectFile = OutputFile.empty() ? "temp.o" : OutputFile + ".o";
+            std::error_code EC;
+            llvm::raw_fd_ostream dest(ObjectFile, EC, llvm::sys::fs::OF_None);
+            if (EC) {
+                std::cerr << "Could not open file: " << EC.message() << std::endl;
+                exit(1);
+            }
+
+            llvm::legacy::PassManager pass;
+            if (TargetMachine->addPassesToEmitFile(
+                pass, dest, nullptr, llvm::CodeGenFileType::ObjectFile
+            )) {
+                std::cerr << "Failed to emit object file" << std::endl;
+                exit(1);
+            }
+
+            pass.run(module);
+            dest.flush();
+
+            // Линковка
+            std::string ExeFile = OutputFile.empty() ? std::string("temp_program") : OutputFile;
+            std::string linkCmd = "gcc -no-pie " + ObjectFile + " -o " + ExeFile;
+            if (system(linkCmd.c_str()) != 0) {
+                std::cerr << "Linking failed" << std::endl;
+                exit(1);
+            }
+
+            if (OutputFile.empty()) {
+                std::remove(ObjectFile.c_str());
+            }
         }
+
         if (!ASTOutput.empty()) {
             std::ofstream out(ASTOutput.c_str());
             $5->PrintAst(out);
@@ -131,13 +198,11 @@ expr:
 int main(int argc, char *argv[]) {
     cl::ParseCommandLineOptions(argc, argv, "My LLVM Tool\n");
 
-    /* if (EmitIR) {
-        std::cout << "Generating LLVM IR.\n";
-    }
-
-    if (!ASTOutput.empty()) {
-        std::cout << "Outputting AST to file: " << ASTOutput << "\n";
-    } */
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
 
     yyparse();
     return 0;
