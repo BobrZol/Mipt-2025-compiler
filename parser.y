@@ -1,11 +1,29 @@
 %code requires {
-    #include "Ast.hpp"
+  #include "Ast.hpp"
 }
 
 %{
 #include <iostream>
 #include <memory>
 #include <string>
+#include <llvm/Support/CommandLine.h>
+#include "IRGenerator.hpp"
+
+namespace cl = llvm::cl;
+
+cl::opt<bool> EmitIR(
+    "emit-ir",
+    cl::desc("Generate LLVM IR instead of executing")
+);
+
+cl::opt<std::string> ASTOutput(
+    "ast-output",
+    cl::desc("Output file for AST dump"),
+    cl::value_desc("filename")
+);
+
+int print_ast = 0;
+char *ast_filename = NULL;
 
 extern int yylex();
 void yyerror(const char *s);
@@ -36,13 +54,21 @@ void yyerror(const char *s);
 
 program:
     MAIN LPAREN RPAREN LBRACE statements RBRACE {
-        $$ = $5;
-        $$->InterpretStmt(globalScope);
-
-        std::ofstream outFile("ast.txt");
-        if (outFile.is_open()) {
-            $$->PrintAst(outFile);
-            outFile.close();
+        TypeChecker checker;
+        checker.TypeCheck(*$5);
+        if (EmitIR) {
+            llvm::LLVMContext context;
+            llvm::Module module("main", context);
+            IRGenerator generator(context, &module);
+            generator.Generate(*$5);
+            module.print(llvm::outs(), nullptr);
+        } else {
+            // InterpreterBase visitor;
+            // $5->InterpretStmt(globalScope, visitor);
+        }
+        if (!ASTOutput.empty()) {
+            std::ofstream out(ASTOutput.c_str());
+            $5->PrintAst(out);
         }
     }
     ;
@@ -73,11 +99,16 @@ assignment:
         free($1);
     }
     ;if_stmt:
-    IF LPAREN expr EQ expr RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE {
+    IF LPAREN expr EQ expr RPAREN LBRACE statements RBRACE {
+        Expr* cond = new BinOp("==", std::unique_ptr<Expr>($3), std::unique_ptr<Expr>($5));
+        $$ = new Condition(std::unique_ptr<Expr>(cond), std::unique_ptr<Stmt>($8), nullptr);
+    }
+    | IF LPAREN expr EQ expr RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE {
         Expr* cond = new BinOp("==", std::unique_ptr<Expr>($3), std::unique_ptr<Expr>($5));
         $$ = new Condition(std::unique_ptr<Expr>(cond), std::unique_ptr<Stmt>($8), std::unique_ptr<Stmt>($12));
     }
     ;
+
 
 print_stmt:
     PRINT LPAREN expr RPAREN {
@@ -97,7 +128,17 @@ expr:
 
 %%
 
-int main() {
+int main(int argc, char *argv[]) {
+    cl::ParseCommandLineOptions(argc, argv, "My LLVM Tool\n");
+
+    /* if (EmitIR) {
+        std::cout << "Generating LLVM IR.\n";
+    }
+
+    if (!ASTOutput.empty()) {
+        std::cout << "Outputting AST to file: " << ASTOutput << "\n";
+    } */
+
     yyparse();
     return 0;
 }

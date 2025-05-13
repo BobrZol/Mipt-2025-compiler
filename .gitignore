@@ -1,2 +1,6 @@
 .vscode
 compiler
+HeaderFiles/
+SourceFiles/
+xlam
+llvm-project
