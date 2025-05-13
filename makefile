@@ -10,7 +10,7 @@ LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags)
 LLVM_LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags --system-libs --libs core support)
 
 CXXFLAGS = -std=c++17 -fno-rtti $(LLVM_CXXFLAGS)
-LDFLAGS = $(LLVM_LDFLAGS) -lfl
+LDFLAGS = $(LLVM_LDFLAGS)
 
 OBJ = parser.tab.o lex.yy.o Ast.o IRGenerator.o
 
