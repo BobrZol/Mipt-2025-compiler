@@ -49,14 +49,16 @@ void yyerror(const char *s);
 
 %union {
     int num;
+    bool bl;
     char* str;
     Stmt* stmt;
     Expr* expr;
     Root* root;
 }
 
-%token MAIN DECLARE INT IF ELSE PRINT
+%token MAIN DECLARE INT IF ELSE PRINT BOOL
 %token <str> ID
+%token <bl> TRUE FALSE
 %token <num> NUMBER
 %token ASSIGN EQ PLUS MINUS MULT DIV
 %token LPAREN RPAREN LBRACE RBRACE SEMICOLON COLON
@@ -155,7 +157,11 @@ statement:
 
 declaration:
     DECLARE ID COLON INT {
-        $$ = new Declare(std::string($2));
+        $$ = new Declare(std::string($2), "int");
+        free($2);
+    }
+    | DECLARE ID COLON BOOL {
+        $$ = new Declare(std::string($2), "bool");
         free($2);
     }
     ;
@@ -185,6 +191,8 @@ print_stmt:
 
 expr:
     NUMBER           { $$ = new Number($1); }
+    | TRUE            { $$ = new Boolean($1); }
+    | FALSE            { $$ = new Boolean($1); }
     | ID             { $$ = new Variable(std::string($1)); free($1); }
     | expr PLUS expr { $$ = new BinOp("+", std::unique_ptr<Expr>($1), std::unique_ptr<Expr>($3)); }
     | expr MINUS expr { $$ = new BinOp("-", std::unique_ptr<Expr>($1), std::unique_ptr<Expr>($3)); }

@@ -4,3 +4,6 @@ HeaderFiles/
 SourceFiles/
 xlam
 llvm-project
+exit_program
+exit_program.o
+test_program.txt

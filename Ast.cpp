@@ -50,7 +50,8 @@ void Condition::PrintAst(std::ofstream& out_file) {
   else_stmt->PrintAst(out_file);
 }
 
-Declare::Declare(const std::string& name) : name_(name), value_(0) {}
+Declare::Declare(const std::string& name, const std::string type)
+    : name_(name), type_(type), value_(0) {}
 
 void Declare::InterpretStmt(std::shared_ptr<TypeScope> scope,
                             const VisitorInterpret& v) {
@@ -66,8 +67,16 @@ void Declare::TypeCheckStmt(std::shared_ptr<TypeScope> scope,
   v.TypeCheck(*this, scope);
 }
 
+std::string ToLogString(std::variant<int, bool> value) {
+  if (std::holds_alternative<int>(value)) {
+    return std::to_string(std::get<int>(value));
+  } else {
+    return std::get<bool>(value) ? "true" : "false";
+  }
+}
+
 void Declare::PrintAst(std::ofstream& out_file) {
-  out_file << "Declare: " << name_ << " = " << value_ << '\n';
+  out_file << "Declare: " << name_ << " = " << ToLogString(value_) << '\n';
 }
 
 Number::Number(int value) : value(value) {}
@@ -89,6 +98,27 @@ llvm::Value* Number::InterpretExpr(std::shared_ptr<TypeScope> scope,
 
 void Number::PrintAst(std::ofstream& out_file) {
   out_file << "Number: " << value << '\n';
+}
+
+Boolean::Boolean(bool value) : value(value) {}
+
+std::string Boolean::TypeCheckExpr(std::shared_ptr<TypeScope> scope,
+                                   VisitorTypeCheck& v) {
+  return v.TypeCheck(*this, scope);
+}
+
+int Boolean::InterpretExpr(std::shared_ptr<TypeScope> scope,
+                           const VisitorInterpret& v) {
+  return v.Interpret(*this, scope);
+}
+
+llvm::Value* Boolean::InterpretExpr(std::shared_ptr<TypeScope> scope,
+                                    IRGenerator& v) {
+  return v.Interpret(*this, scope);
+}
+
+void Boolean::PrintAst(std::ofstream& out_file) {
+  out_file << "Boolean: " << value << '\n';
 }
 
 Print::Print(std::unique_ptr<Expr> expr) : expr_(std::move(expr)) {}

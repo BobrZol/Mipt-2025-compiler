@@ -9,6 +9,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <memory>
 #include <unordered_map>
+#include <variant>
 
 class InterpreterBase;
 class VisitorInterpret;
@@ -111,6 +112,25 @@ private:
   friend TypeChecker;
 };
 
+class Boolean : public Expr {
+public:
+  Boolean(bool value);
+  int InterpretExpr(std::shared_ptr<TypeScope> scope,
+                    const VisitorInterpret& v) override;
+  llvm::Value* InterpretExpr(std::shared_ptr<TypeScope> scope,
+                             IRGenerator& v) override;
+  void PrintAst(std::ofstream& out_file);
+  std::string TypeCheckExpr(std::shared_ptr<TypeScope> scope,
+                            VisitorTypeCheck& v) override;
+
+private:
+  bool value;
+
+  friend InterpreterBase;
+  friend IRGenerator;
+  friend TypeChecker;
+};
+
 class Number : public Expr {
 public:
   Number(int value);
@@ -171,7 +191,7 @@ private:
 
 class Declare : public Stmt {
 public:
-  Declare(const std::string& name);
+  Declare(const std::string& name, const std::string type_);
   void InterpretStmt(std::shared_ptr<TypeScope> scope,
                      const VisitorInterpret& v) override;
   void InterpretStmt(std::shared_ptr<TypeScope> scope, IRGenerator& v) override;
@@ -181,7 +201,8 @@ public:
 
 private:
   std::string name_;
-  int value_;
+  std::variant<int, bool> value_;
+  std::string type_;
 
   friend InterpreterBase;
   friend IRGenerator;
@@ -253,6 +274,8 @@ public:
   virtual void Interpret(Root& ref, std::shared_ptr<TypeScope> scope) const = 0;
   virtual int Interpret(Number& ref,
                         std::shared_ptr<TypeScope> scope) const = 0;
+  virtual bool Interpret(Boolean& ref,
+                         std::shared_ptr<TypeScope> scope) const = 0;
   virtual void Interpret(Print& ref,
                          std::shared_ptr<TypeScope> scope) const = 0;
   virtual void Interpret(Condition& ref,
@@ -272,6 +295,8 @@ class VisitorTypeCheck {
 public:
   virtual void TypeCheck(Root& ref, std::shared_ptr<TypeScope> scope) = 0;
   virtual std::string TypeCheck(Number& ref,
+                                std::shared_ptr<TypeScope> scope) = 0;
+  virtual std::string TypeCheck(Boolean& ref,
                                 std::shared_ptr<TypeScope> scope) = 0;
   virtual void TypeCheck(Print& ref, std::shared_ptr<TypeScope> scope) = 0;
   virtual void TypeCheck(Condition& ref, std::shared_ptr<TypeScope> scope) = 0;
@@ -299,6 +324,10 @@ public:
                         std::shared_ptr<TypeScope> scope) override {
     return "int";
   }
+  std::string TypeCheck(Boolean& ref,
+                        std::shared_ptr<TypeScope> scope) override {
+    return "bool";
+  }
   void TypeCheck(Print& ref, std::shared_ptr<TypeScope> scope) override {
     std::string expr_type = ref.expr_->TypeCheckExpr(scope, *this);
     if (expr_type != "int") {
@@ -310,6 +339,12 @@ public:
     if (cond_type != "int") {
       std::cerr << "Error: condition expects int, got " << cond_type
                 << std::endl;
+      return;
+    }
+    if (cond_type != "bool") {
+      std::cerr << "Error: condition expects bool, got " << cond_type
+                << std::endl;
+      return;
     }
     auto then_scope = std::make_shared<TypeScope>(scope);
     ref.then_stmt->TypeCheckStmt(then_scope, *this);
@@ -324,7 +359,11 @@ public:
       std::cerr << "Error: variable " << ref.name_
                 << " already declared in this scope" << std::endl;
     } else {
-      scope->SetVar(ref.name_, "int");
+      if (ref.type_ == "int") {
+        scope->SetVar(ref.name_, "int");
+      } else {
+        scope->SetVar(ref.name_, "bool");
+      }
     }
   }
   void TypeCheck(Assignment& ref, std::shared_ptr<TypeScope> scope) override {
@@ -364,18 +403,3 @@ public:
     return "";
   }
 };
-
-// class InterpreterBase : public VisitorInterpret {
-// public:
-//   void Interpret(Root& ref, std::shared_ptr<TypeScope> scope) const
-//   override; int Interpret(Number& ref, std::shared_ptr<TypeScope> scope)
-//   const override; void Interpret(Print& ref, std::shared_ptr<TypeScope>
-//   scope) const override; void Interpret(Condition& ref,
-//                  std::shared_ptr<TypeScope> scope) const override;
-//   void Interpret(Declare& ref, std::shared_ptr<TypeScope> scope) const
-//   override; void Interpret(Assignment& ref,
-//                  std::shared_ptr<TypeScope> scope) const override;
-//   int Interpret(Variable& ref, std::shared_ptr<TypeScope> scope) const
-//   override; int Interpret(BinOp& ref, std::shared_ptr<TypeScope> scope)
-//   const override;
-// };

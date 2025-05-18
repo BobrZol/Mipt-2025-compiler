@@ -92,6 +92,11 @@ llvm::Value* IRGenerator::Interpret(Variable& ref,
   return builder.CreateLoad(Type::getInt32Ty(context), ptr, ref.name_);
 }
 
+llvm::Value* IRGenerator::Interpret(Boolean& ref,
+                                    std::shared_ptr<TypeScope> scope) {
+  return ConstantInt::get(Type::getInt1Ty(context), ref.value);
+}
+
 llvm::Value* IRGenerator::Interpret(BinOp& ref,
                                     std::shared_ptr<TypeScope> scope) {
   Value* L = ref.left_->InterpretExpr(scope, *this);

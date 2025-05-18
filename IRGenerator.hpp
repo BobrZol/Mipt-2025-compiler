@@ -21,6 +21,7 @@ public:
 
   void Interpret(Root& ref, std::shared_ptr<TypeScope> scope);
   llvm::Value* Interpret(Number& ref, std::shared_ptr<TypeScope> scope);
+  llvm::Value* Interpret(Boolean& ref, std::shared_ptr<TypeScope> scope);
   void Interpret(Print& ref, std::shared_ptr<TypeScope> scope);
   void Interpret(Condition& ref, std::shared_ptr<TypeScope> scope);
   void Interpret(Declare& ref, std::shared_ptr<TypeScope> scope);
