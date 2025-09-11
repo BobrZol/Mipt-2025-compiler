@@ -10,6 +10,9 @@
 "main"          { return MAIN; }
 "declare"       { return DECLARE; }
 "int"           { return INT; }
+"bool"           { return BOOL; }
+"true"           { return TRUE; }
+"false"           { return FALSE; }
 "if"            { return IF; }
 "else"          { return ELSE; }
 "print"         { return PRINT; }
